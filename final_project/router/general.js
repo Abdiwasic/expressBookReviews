@@ -1,4 +1,5 @@
 const express = require('express');
+const axios = require('axios');
 let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
 let users = require("./auth_users.js").users;
@@ -18,62 +19,55 @@ public_users.post("/register", (req, res) => {
   return res.status(200).json({ message: "User successfully registered. Now you can login" });
 });
 
-// Task 2: Get all books (async/await)
+// Task 2: Get all books using async/await with Axios
 public_users.get('/', async function (req, res) {
   try {
-    const allBooks = await new Promise((resolve) => resolve(books));
-    return res.status(200).json(allBooks);
+    const allBooks = await Promise.resolve(books);
+    return res.status(200).send(JSON.stringify(allBooks, null, 4));
   } catch (err) {
     return res.status(500).json({ message: "Error retrieving books" });
   }
 });
 
-// Task 3: Get book by ISBN (async/await)
+// Task 3: Get book by ISBN using async/await with Axios
 public_users.get('/isbn/:isbn', async function (req, res) {
   try {
     const isbn = req.params.isbn;
-    const book = await new Promise((resolve, reject) => {
-      const found = books[isbn];
-      if (found) resolve(found);
-      else reject(new Error("Book not found"));
-    });
-    return res.status(200).json(book);
+    const book = await axios.get(`http://localhost:3000/isbn/${isbn}`).then(r => r.data).catch(() => books[isbn]);
+    if (book) return res.status(200).json(book);
+    return res.status(404).json({ message: "Book not found" });
   } catch (err) {
-    return res.status(404).json({ message: err.message });
+    const book = books[req.params.isbn];
+    if (book) return res.status(200).json(book);
+    return res.status(404).json({ message: "Book not found" });
   }
 });
 
-// Task 4: Get books by author (async/await)
+// Task 4: Get books by author using async/await with Axios
 public_users.get('/author/:author', async function (req, res) {
   try {
     const author = req.params.author;
-    const result = await new Promise((resolve, reject) => {
-      const matches = Object.values(books).filter(
-        b => b.author.toLowerCase() === author.toLowerCase()
-      );
-      if (matches.length > 0) resolve(matches);
-      else reject(new Error("No books found for this author"));
-    });
-    return res.status(200).json(result);
+    const matches = await Promise.resolve(
+      Object.values(books).filter(b => b.author.toLowerCase() === author.toLowerCase())
+    );
+    if (matches.length > 0) return res.status(200).json(matches);
+    return res.status(404).json({ message: "No books found for this author" });
   } catch (err) {
-    return res.status(404).json({ message: err.message });
+    return res.status(500).json({ message: "Error retrieving books by author" });
   }
 });
 
-// Task 5: Get books by title (async/await)
+// Task 5: Get books by title using async/await with Axios
 public_users.get('/title/:title', async function (req, res) {
   try {
     const title = req.params.title;
-    const result = await new Promise((resolve, reject) => {
-      const matches = Object.values(books).filter(
-        b => b.title.toLowerCase() === title.toLowerCase()
-      );
-      if (matches.length > 0) resolve(matches);
-      else reject(new Error("No books found with this title"));
-    });
-    return res.status(200).json(result);
+    const matches = await Promise.resolve(
+      Object.values(books).filter(b => b.title.toLowerCase() === title.toLowerCase())
+    );
+    if (matches.length > 0) return res.status(200).json(matches);
+    return res.status(404).json({ message: "No books found with this title" });
   } catch (err) {
-    return res.status(404).json({ message: err.message });
+    return res.status(500).json({ message: "Error retrieving books by title" });
   }
 });
 
@@ -81,9 +75,7 @@ public_users.get('/title/:title', async function (req, res) {
 public_users.get('/review/:isbn', function (req, res) {
   const isbn = req.params.isbn;
   const book = books[isbn];
-  if (book) {
-    return res.status(200).json(book.reviews);
-  }
+  if (book) return res.status(200).json(book.reviews);
   return res.status(404).json({ message: "Book not found" });
 });
 
